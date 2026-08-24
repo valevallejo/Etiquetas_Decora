@@ -122,7 +122,10 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 /* Los colores de la etiqueta no son decoración: deben imprimirse siempre. */
 .lbl,.lbl *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .lbl svg.fondo{position:absolute;left:0;top:0;display:block}
-.lbl .inner{position:absolute;left:0;top:0;transform-origin:top left}
+/* zoom, no transform: transform deja la caja de diseño a tamaño real (340 × 500 mm),
+   y al paginar el navegador la parte y encoge toda la hoja. zoom sí reduce el diseño. */
+.lbl .inner{position:absolute;left:0;top:0}
+.sin-zoom .lbl .inner{zoom:normal;transform:scale(.25);transform-origin:top left}
 .lbl .bg{position:absolute}
 .lbl .t{position:absolute;line-height:1;white-space:nowrap;font-weight:400}
 .lbl .wrap{white-space:normal;line-height:1.08;overflow:hidden}
@@ -174,7 +177,7 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
     <div class="spacer"></div>
     <button class="btn" id="btnTheme">Tema</button>
     <button class="btn" id="btnClear">Vaciar cola</button>
-    <span class="note" style="text-align:right;line-height:1.3;max-width:150px">Papel Carta<br>Escala 100% · sin márgenes</span>
+    <span class="note" style="text-align:right;line-height:1.3;max-width:150px">Papel Carta · Escala 100%<br>Márgenes: Ninguno o Personalizados</span>
     <button class="btn primary" id="btnPrint">Imprimir / Guardar PDF</button>
   </header>
 
@@ -235,11 +238,12 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
     <ul class="ajustes">
       <li><b>Tamaño de papel</b><span>Carta</span></li>
       <li><b>Escala</b><span>100 · no «Ajustar»</span></li>
-      <li><b>Márgenes</b><span>Ninguno</span></li>
+      <li><b>Márgenes</b><span>Ninguno o Personalizados</span></li>
       <li><b>Encabezado y pie de página</b><span>desmarcado</span></li>
     </ul>
-    <p class="modal-sub">En Edge y Chrome, <b>Escala</b> está escondida: abre <b>Más opciones</b>
-      al final del panel de impresión. Suele quedarse guardada de la última vez.</p>
+    <p class="modal-sub">Si las etiquetas salen encogidas, es la <b>escala</b>: está escondida en
+      <b>Más opciones</b>, al final del panel, y se queda guardada de la última vez. Cambiar
+      márgenes a <b>Personalizados</b> también suele devolverla al 100%.</p>
     <div class="modal-acts">
       <label class="check" style="font-size:12px;margin-right:auto">
         <input type="checkbox" id="noVerMas"> No volver a mostrar</label>
@@ -405,7 +409,7 @@ function tplLinea(r){
        <div class="t" style="left:${M(58.3)};top:${M(99.5)};font-size:${P(14.1)};font-weight:700;color:#616E5F">${p}% dcto*</div>`
     : `<div class="t" style="left:${M(4.6)};top:${M(97.3)};font-size:${P(5.7)};font-weight:700;color:#616E5F">PRECIO</div>
        <div class="t" style="left:${M(19.2)};top:${M(95.9)};font-size:${P(19.4)};font-weight:700;color:#616E5F">${oferta}</div>`;
-  return `<div class="lbl"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
+  return `<div class="lbl"><div class="inner" style="width:${M(85)};height:${M(125)};zoom:${(1/K)}">
     <svg class="fondo" width="${M(85)}" height="${M(125)}" viewBox="0 0 85 125" aria-hidden="true">
       <rect x="0" y="0" width="85" height="16.6" fill="#F3EFE3"/>
       <rect x="0" y="89.5" width="85" height="19.5" fill="#F3EFE3"/>
@@ -433,7 +437,7 @@ function tplLinea(r){
 function tplLiquidacion(r){
   const f=fechaHoy(), p=r.conDcto?r.dcto:0;
   const reg=money(r.precioLista), of=money(r.precioOferta)||money(r.precioLista);
-  return `<div class="lbl" style="color:#fff"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
+  return `<div class="lbl" style="color:#fff"><div class="inner" style="width:${M(85)};height:${M(125)};zoom:${(1/K)}">
     <svg class="fondo" width="${M(85)}" height="${M(125)}" viewBox="0 0 85 125" aria-hidden="true">
       <rect x="0" y="0" width="85" height="125" fill="#E53628"/>
       <rect x="2.39" y="2.79" width="80.62" height="119.52" fill="none" stroke="#fff" stroke-width="0.38"/>
@@ -596,6 +600,8 @@ function renderQueue(){
 }
 
 /* ===================== arranque ===================== */
+if(!(window.CSS && CSS.supports && CSS.supports("zoom","0.25")))
+  document.documentElement.classList.add("sin-zoom");
 load();
 $("startAt").value=S.startAt; $("guias").checked=S.guias;
 $("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
