@@ -77,9 +77,6 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
   border:1px solid var(--line-soft);line-height:1.4;align-items:flex-start}
 .status.ok{color:var(--ok)} .status.warn{color:var(--warn)} .status.err{color:var(--alert)}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;margin-top:5px}
-.mapgrid{display:grid;grid-template-columns:104px 1fr;gap:7px 10px;align-items:center}
-.mapgrid label{font-size:12px;color:var(--muted)}
-.mapgrid select{font-size:12.5px;padding:5px 7px}
 
 .res{display:flex;flex-direction:column;gap:6px;max-height:270px;overflow-y:auto}
 .rescard{display:flex;gap:9px;align-items:center;border:1px solid var(--line);border-radius:6px;
@@ -165,22 +162,7 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
     <aside class="panel">
 
       <details class="sect" open>
-        <summary><span class="step">01</span>Portafolio <span class="hint" id="srcHint">sin conectar</span></summary>
-        <div class="sbody">
-          <div class="field"><label for="sheetId">ID de la hoja de Google</label>
-            <input type="text" id="sheetId"></div>
-          <div class="grid2">
-            <div class="field"><label for="tabPrecios">Pestaña de precios</label><input type="text" id="tabPrecios" placeholder="ej. Precios"></div>
-            <div class="field"><label for="tabFotos">Pestaña de fotos</label><input type="text" id="tabFotos" value="Imagenes"></div>
-          </div>
-          <button class="btn" id="btnConnect">Conectar y leer columnas</button>
-          <div class="status" id="srcStatus"><span class="dot"></span><span>Escribe el nombre exacto de la pestaña de precios y pulsa conectar.</span></div>
-          <div class="field"><label>Asignar columnas</label><div class="mapgrid" id="mapgrid"></div></div>
-        </div>
-      </details>
-
-      <details class="sect" open>
-        <summary><span class="step">02</span>Buscar producto</summary>
+        <summary><span class="step">01</span>Buscar producto <span class="hint" id="srcHint">cargando…</span></summary>
         <div class="sbody">
           <div class="field"><label for="q">SKU o nombre</label>
             <input type="search" id="q" placeholder="7031797  ·  alfombra santorini" autocomplete="off"></div>
@@ -189,32 +171,19 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
       </details>
 
       <details class="sect">
-        <summary><span class="step">03</span>Carga masiva</summary>
+        <summary><span class="step">02</span>Carga masiva</summary>
         <div class="sbody">
-          <div class="field"><label for="bulk">Pega una lista de SKUs (uno por línea, opcional « SKU, cantidad »)</label>
+          <div class="field"><label for="bulk">Pega una lista de SKUs, uno por línea (opcional « SKU, cantidad »)</label>
             <textarea id="bulk" placeholder="7031797, 4&#10;7002336, 1"></textarea></div>
           <button class="btn" id="btnBulk">Agregar a la cola</button>
-          <div class="note">Los datos salen del portafolio. Si un SKU no aparece, te aviso cuáles fueron.</div>
         </div>
       </details>
 
       <details class="sect" open>
-        <summary><span class="step">04</span>Cola de impresión <span class="hint" id="qHint">0</span></summary>
+        <summary><span class="step">03</span>Cola de impresión <span class="hint" id="qHint">0</span></summary>
         <div class="sbody"><div class="queue" id="queue"></div></div>
       </details>
 
-      <details class="sect">
-        <summary><span class="step">05</span>Impresión</summary>
-        <div class="sbody">
-          <div class="grid2">
-            <div class="field"><label for="ox">Calibración X (mm)</label><input type="number" id="ox" step="0.5" value="0"></div>
-            <div class="field"><label for="oy">Calibración Y (mm)</label><input type="number" id="oy" step="0.5" value="0"></div>
-          </div>
-          <div class="field"><label for="startAt">Empezar en la etiqueta #</label><input type="number" id="startAt" min="1" max="4" value="1"></div>
-          <label class="check"><input type="checkbox" id="outline" checked> Ver contorno de corte en pantalla</label>
-          <p class="note"><strong>Antes de imprimir:</strong> márgenes <strong>Ninguno</strong> y escala <strong>100%</strong>, nunca «Ajustar a la página». Cada hoja carta lleva 4 etiquetas de 85 × 125 mm.</p>
-        </div>
-      </details>
     </aside>
 
     <section class="stage">
@@ -222,7 +191,13 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
         <div class="metric"><b id="mLab">0</b><span>etiquetas</span></div>
         <div class="sep"></div>
         <div class="metric"><b id="mSheets">0</b><span>hojas</span></div>
+        <div class="sep"></div>
+        <div class="zoom"><label for="startAt">Empezar en</label>
+          <input type="number" id="startAt" min="1" max="4" value="1" style="width:52px">
+          <span>de 4</span></div>
         <div class="spacer"></div>
+        <button class="btn sm" id="btnReload" title="Vuelve a leer el portafolio">Actualizar portafolio</button>
+        <div class="sep"></div>
         <div class="zoom"><label for="zoom">Vista</label><input type="range" id="zoom" min="25" max="120" value="55"><span id="zv" style="font-family:'IBM Plex Mono',monospace">55%</span></div>
       </div>
       <div class="canvas" id="canvas"></div>
@@ -236,22 +211,21 @@ const LOGO_JAMAR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGUAAAAVCAIAAA
 const LOGO_CREDI = "data:image/png;base64,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";
 
 /* ===================== estado ===================== */
-const S = {
-  sheetId: "1Zvf017OwhwKMb7_0NEKvhU0PnegumNCLUilMh63pM7U",
-  tabPrecios: "", tabFotos: "Imagenes",
-  headers: [], rows: [], fotos: {}, map: {},
-  queue: [], ox:0, oy:0, startAt:1, outline:true, zoom:55, connected:false
+const SHEET_ID = "1Zvf017OwhwKMb7_0NEKvhU0PnegumNCLUilMh63pM7U";
+const GID_PORTAFOLIO = "1086284473";
+const TAB_FOTOS = "Imagenes";
+// Encabezados del portafolio. Se buscan por nombre; si cambian, basta editar esta lista.
+const COLMAP = {
+  sku:    ["codigo sap tx","codigo","sku"],
+  nombre: ["nombre producto","nombre"],
+  estado: ["estado"],
+  oferta: ["oferta costa 1","oferta"],
+  dcto:   ["dcto costa 1","dcto","descuento"],
+  lista:  ["lista costa 1","lista"]
 };
-const FIELDS = [
-  ["sku","SKU"], ["nombre","Nombre"], ["precioLista","Precio lista"],
-  ["precioOferta","Precio oferta"], ["cuota","Cuota"]
-];
-const GUESS = {
-  sku:["sku","codigo","código","material","referencia","ref","item"],
-  nombre:["nombre","texto breve","descripcion","descripción","producto","articulo","artículo"],
-  precioLista:["precio lista","lista","precio regular","regular","pvp","precio normal","precio full"],
-  precioOferta:["precio oferta","oferta","precio venta","precio final","precio actual","venta"],
-  cuota:["cuota","cuota mensual","credijamar","credi"]
+const S = {
+  headers: [], rows: [], idx: {}, fotos: {},
+  queue: [], ox:0, oy:0, startAt:1, outline:true, zoom:55, listo:false
 };
 
 const $ = id => document.getElementById(id);
@@ -269,7 +243,7 @@ function money(v){ const n=nnum(v); if(!n) return "";
   return "$"+new Intl.NumberFormat("es-CO",{maximumFractionDigits:0}).format(Math.round(n)); }
 
 /* ===================== persistencia ===================== */
-const KEYS=["sheetId","tabPrecios","tabFotos","map","queue","ox","oy","startAt","outline","zoom"];
+const KEYS=["queue","startAt","outline","zoom"];
 const save=()=>{ try{ localStorage.setItem("etiquetas-decora",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,S[k]])))); }catch(e){} };
 const load=()=>{ try{ const r=localStorage.getItem("etiquetas-decora"); if(r) Object.assign(S,JSON.parse(r)); }catch(e){} };
 
@@ -288,74 +262,101 @@ function parseCsv(text){
   if(cell!==""||row.length){ row.push(cell.trim()); rows.push(row); }
   return rows.filter(r=>r.some(c=>c!==""));
 }
-async function fetchTab(tab){
-  const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(S.sheetId)}/gviz/tq`
-            + `?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+async function fetchTab(param){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&${param}`;
   const res = await fetch(url);
-  if(!res.ok) throw new Error(`La hoja respondió ${res.status}. Revisa el nombre de la pestaña y que el archivo esté compartido con enlace.`);
+  if(!res.ok) throw new Error(`El portafolio respondió ${res.status}.`);
   const txt = await res.text();
-  if(/^\s*</.test(txt)) throw new Error("Google devolvió una página de acceso, no datos. La hoja debe estar compartida como «cualquiera con el enlace».");
+  if(/^\s*</.test(txt)) throw new Error("La hoja no está compartida con enlace público.");
   return parseCsv(txt);
 }
-function autoMap(headers){
-  const map={}, used=new Set();
-  for(const [f] of FIELDS){
-    const cands=GUESS[f]; let best=-1;
-    headers.forEach((h,i)=>{ if(used.has(i)||best>=0) return; if(cands.some(c=>NORM(h)===c)) best=i; });
-    if(best<0) headers.forEach((h,i)=>{ if(used.has(i)||best>=0) return; if(cands.some(c=>NORM(h).includes(c))) best=i; });
-    if(best>=0){ map[f]=best; used.add(best); }
+function findCols(headers){
+  const H = headers.map(NORM), idx={};
+  for(const [k,cands] of Object.entries(COLMAP)){
+    let i = H.findIndex(h=>cands.includes(h));
+    if(i<0) i = H.findIndex(h=>cands.some(c=>h.includes(c)));
+    if(i>=0) idx[k]=i;
   }
-  return map;
+  return idx;
 }
-async function connect(){
-  const st=$("srcStatus");
-  if(!S.tabPrecios.trim()){ st.className="status warn"; st.lastElementChild.textContent="Escribe el nombre exacto de la pestaña de precios."; return; }
-  st.className="status"; st.lastElementChild.textContent="Consultando el portafolio…";
+/* El portafolio viene en mayúsculas; la etiqueta va en caja alta y baja.
+   Se respetan los códigos y las medidas (los que llevan números) y las siglas cortas. */
+const STOP = new Set(["de","del","la","las","el","los","y","e","o","u","con","en","por","para","a","al","sin","x"]);
+function bonito(s){
+  return String(s||"").trim().split(/\s+/).map((w,i)=>{
+    if(/\d/.test(w)) return w.toUpperCase();               // medidas y códigos
+    const low = w.toLowerCase();
+    if(i>0 && STOP.has(low)) return low;                   // conectores
+    if(w.length<=3 && w===w.toUpperCase()) return w;       // siglas: MJ, LED
+    return w.charAt(0).toUpperCase()+low.slice(1);
+  }).join(" ");
+}
+async function cargarPortafolio(silencioso){
+  const hint=$("srcHint");
+  hint.textContent = "cargando…";
   try{
-    const rows = await fetchTab(S.tabPrecios);
-    if(rows.length<2) throw new Error("La pestaña llegó vacía.");
-    S.headers = rows[0].map(h=>h.trim()||"(sin título)");
-    S.rows = rows.slice(1);
-    if(!Object.keys(S.map).length || Object.values(S.map).some(i=>i>=S.headers.length)) S.map = autoMap(S.headers);
-    S.connected = true;
-    // fotos (opcional)
-    S.fotos = {};
+    const rows = await fetchTab(`gid=${GID_PORTAFOLIO}`);
+    if(rows.length<2) throw new Error("El portafolio llegó vacío.");
+    S.headers = rows[0];
+    S.idx = findCols(S.headers);
+    const faltan = ["sku","nombre","estado","oferta","lista"].filter(k=>S.idx[k]===undefined);
+    if(faltan.length) throw new Error("Faltan columnas en el portafolio: "+faltan.join(", "));
+    S.rows = rows.slice(1).filter(r=>String(r[S.idx.sku]||"").trim());
+    S.listo = true;
+    hint.textContent = `${S.rows.length} productos`;
     try{
-      const fr = await fetchTab(S.tabFotos);
+      const fr = await fetchTab(`sheet=${encodeURIComponent(TAB_FOTOS)}`);
       const fh = fr[0].map(NORM);
       const iS = fh.findIndex(h=>h.includes("sku")||h.includes("codigo"));
       const iF = fh.findIndex(h=>h.includes("foto")||h.includes("imagen")||h.includes("url"));
-      if(iS>=0 && iF>=0) for(const r of fr.slice(1)) if(r[iS]) S.fotos[String(r[iS]).trim()] = r[iF];
-    }catch(e){ /* sin fotos, no es bloqueante */ }
-    const nf = Object.keys(S.fotos).length;
-    st.className="status ok";
-    st.lastElementChild.textContent = `${S.rows.length} productos leídos · ${S.headers.length} columnas · ${nf} fotos.`;
-    $("srcHint").textContent = `${S.rows.length} productos`;
-    buildMap(); save(); render();
+      S.fotos = {};
+      if(iS>=0&&iF>=0) for(const r of fr.slice(1)) if(r[iS]) S.fotos[String(r[iS]).trim()]=r[iF];
+    }catch(e){ S.fotos={}; }
+    renderResults($("q").value);
+    if(!silencioso) toast(`Portafolio actualizado: ${S.rows.length} productos.`);
   }catch(err){
-    S.connected=false;
-    st.className="status err";
-    const blocked = /Failed to fetch|NetworkError|CORS/i.test(err.message);
-    st.lastElementChild.textContent = blocked
-      ? "El navegador bloqueó la conexión a Google Sheets. Esto pasa en la vista previa de Claude; en la versión publicada en GitHub Pages funciona."
-      : err.message;
+    S.listo=false;
+    const bloqueado = /Failed to fetch|NetworkError|CORS/i.test(err.message);
+    hint.textContent = "sin conexión";
+    $("res").innerHTML = `<div class="status err"><span class="dot"></span><span>${
+      bloqueado
+        ? "Este visor bloquea la conexión al portafolio. En la versión publicada en GitHub Pages funciona normal."
+        : esc(err.message)}</span></div>`;
   }
 }
 function rec(row){
-  const g = f => S.map[f]!==undefined ? String(row[S.map[f]]??"").trim() : "";
+  const g = k => S.idx[k]!==undefined ? String(row[S.idx[k]]??"").trim() : "";
   const sku = g("sku");
-  return { sku, nombre:g("nombre"), precioLista:g("precioLista"),
-           precioOferta:g("precioOferta"), cuota:g("cuota"), foto:S.fotos[sku]||"" };
+  const dcto = Math.round(nnum(g("dcto").replace("%","")));
+  const lista = nnum(g("lista")), oferta = nnum(g("oferta"));
+  const conDcto = dcto>0 && lista>0 && oferta>0 && oferta<lista;
+  return {
+    sku, nombre: bonito(g("nombre")), estado: g("estado"),
+    precioLista: lista, precioOferta: oferta || lista,
+    dcto: conDcto ? dcto : 0, conDcto,
+    cuota: "", // el portafolio aún no trae la cuota de CrediJamar
+    tipo: /inactiv/i.test(g("estado")) ? "liquidacion" : "linea",
+    foto: S.fotos[sku] || ""
+  };
 }
 
 /* ===================== etiquetas ===================== */
-function pctDcto(r){
-  const l=nnum(r.precioLista), o=nnum(r.precioOferta);
-  return (l>0&&o>0&&l>o) ? Math.round((1-o/l)*100) : 0;
-}
 const K=4, M=v=>(v*K).toFixed(3)+"mm", P=v=>(v*K).toFixed(2)+"pt";
 function tplLinea(r){
-  const f=fechaHoy(), p=pctDcto(r), lista=money(r.precioLista), oferta=money(r.precioOferta)||money(r.precioLista);
+  const f=fechaHoy(), p=r.conDcto?r.dcto:0;
+  const lista=money(r.precioLista), oferta=money(r.precioOferta)||money(r.precioLista);
+  // Sin descuento la banda muestra un solo precio, centrado en su franja.
+  const bloquePrecio = p
+    ? `<div class="t" style="left:${M(4.5)};top:${M(94.0)};font-size:${P(5.7)};font-weight:700;color:#85907D">PRECIO</div>
+       <div class="t" style="left:${M(4.5)};top:${M(96.4)};font-size:${P(5.7)};font-weight:700;color:#85907D">DE LISTA</div>
+       <div class="t" style="left:${M(19.2)};top:${M(94.3)};font-size:${P(13.9)};font-weight:500;color:#86927E;text-decoration:line-through">${lista}</div>
+       <div class="t" style="left:${M(4.6)};top:${M(100.4)};font-size:${P(5.7)};font-weight:700;color:#616E5F">PRECIO</div>
+       <div class="t" style="left:${M(4.6)};top:${M(102.9)};font-size:${P(5.7)};font-weight:700;color:#616E5F">OFERTA</div>
+       <div class="t" style="left:${M(19.2)};top:${M(99.8)};font-size:${P(19.4)};font-weight:700;color:#616E5F">${oferta}</div>
+       <div class="t" style="left:${M(58.3)};top:${M(94.4)};font-size:${P(7.8)};color:#616E5F">Ll\u00e9vatelo con el</div>
+       <div class="t" style="left:${M(58.3)};top:${M(99.5)};font-size:${P(14.1)};font-weight:700;color:#616E5F">${p}% dcto*</div>`
+    : `<div class="t" style="left:${M(4.6)};top:${M(97.3)};font-size:${P(5.7)};font-weight:700;color:#616E5F">PRECIO</div>
+       <div class="t" style="left:${M(19.2)};top:${M(95.9)};font-size:${P(19.4)};font-weight:700;color:#616E5F">${oferta}</div>`;
   return `<div class="lbl"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
     <div class="bg" style="left:0;top:0;width:${M(85)};height:${M(16.6)};background:#F3EFE3"></div>
     <div class="bg" style="left:0;top:${M(89.5)};width:${M(85)};height:${M(19.5)};background:#F3EFE3"></div>
@@ -367,16 +368,9 @@ function tplLinea(r){
     ${r.foto
       ? `<img class="foto" src="${esc(r.foto)}" alt="" style="left:${M(10.5)};top:${M(20.2)};width:${M(65.6)};height:${M(65.6)}" onerror="this.style.display='none'">`
       : `<div class="nofoto" style="left:${M(10.5)};top:${M(20.2)};width:${M(65.6)};height:${M(65.6)};font-size:${P(9)}">sin foto</div>`}
-    <div class="t" style="left:${M(4.5)};top:${M(94.0)};font-size:${P(5.7)};font-weight:700;color:#85907D">PRECIO</div>
-    <div class="t" style="left:${M(4.5)};top:${M(96.4)};font-size:${P(5.7)};font-weight:700;color:#85907D">DE LISTA</div>
-    ${lista&&p?`<div class="t" style="left:${M(19.2)};top:${M(94.3)};font-size:${P(13.9)};font-weight:500;color:#86927E;text-decoration:line-through">${lista}</div>`:""}
-    <div class="t" style="left:${M(4.6)};top:${M(100.4)};font-size:${P(5.7)};font-weight:700;color:#616E5F">PRECIO</div>
-    <div class="t" style="left:${M(4.6)};top:${M(102.9)};font-size:${P(5.7)};font-weight:700;color:#616E5F">OFERTA</div>
-    <div class="t" style="left:${M(19.2)};top:${M(99.8)};font-size:${P(19.4)};font-weight:700;color:#616E5F">${oferta}</div>
-    ${p?`<div class="t" style="left:${M(58.3)};top:${M(94.4)};font-size:${P(7.8)};color:#616E5F">Ll\u00e9vatelo con el</div>
-        <div class="t" style="left:${M(58.3)};top:${M(99.5)};font-size:${P(14.1)};font-weight:700;color:#616E5F">${p}% dcto*</div>`:""}
-    <div class="t" style="left:${M(5.1)};top:${M(113.1)};font-size:${P(6.1)};font-weight:700;color:#fff">CUOTAS DESDE</div>
-    <div class="t" style="left:${M(4.8)};top:${M(116.3)};font-size:${P(14.8)};font-weight:700;color:#fff">${money(r.cuota)}</div>
+    ${bloquePrecio}
+    ${r.cuota?`<div class="t" style="left:${M(5.1)};top:${M(113.1)};font-size:${P(6.1)};font-weight:700;color:#fff">CUOTAS DESDE</div>
+    <div class="t" style="left:${M(4.8)};top:${M(116.3)};font-size:${P(14.8)};font-weight:700;color:#fff">${money(r.cuota)}</div>`:""}
     <img class="asset" src="${LOGO_CREDI}" alt="CrediJamar" style="left:${M(39.62)};top:${M(113.96)};width:${M(13.89)}">
     <div class="t" style="left:${M(57.4)};top:${M(113.3)};font-size:${P(5)};font-weight:700;color:#fff;width:${M(27.0)};overflow:hidden">CUOTA FIJA DE PRINCIPIO A FIN</div>
     <div class="t fitw" style="left:${M(57.4)};top:${M(116.5)};font-size:${P(5)};font-weight:700;color:#fff;width:${M(27.0)};overflow:hidden">SIN CUOTA DE MANEJO</div>
@@ -385,7 +379,7 @@ function tplLinea(r){
   </div></div>`;
 }
 function tplLiquidacion(r){
-  const f=fechaHoy(), p=pctDcto(r);
+  const f=fechaHoy(), p=r.conDcto?r.dcto:0;
   const reg=money(r.precioLista), of=money(r.precioOferta)||money(r.precioLista);
   return `<div class="lbl" style="color:#fff"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
     <div class="bg" style="left:0;top:0;width:${M(85)};height:${M(125)};background:#E53628"></div>
@@ -395,9 +389,9 @@ function tplLiquidacion(r){
     <div class="t" style="left:0;top:${M(24.1)};width:${M(85)};text-align:center;font-size:${P(17.8)};font-weight:500;color:#fff">\u00daNICA UNIDAD</div>
     <div class="t" style="left:${M(8.2)};top:${M(38.8)};font-size:${P(10.3)};color:#fff">${esc(r.sku)}</div>
     <div class="t fit1" data-max="${12*K}" style="left:${M(8.2)};top:${M(44.3)};width:${M(69)};height:${M(11)};font-size:${P(12)};font-weight:700;color:#fff">${esc(r.nombre)}</div>
-    <div class="bg" style="left:${M(8.5)};top:${M(62.5)};width:${M(68.5)};height:${M(5.4)};background:#fff"></div>
+    ${p?`<div class="bg" style="left:${M(8.5)};top:${M(62.5)};width:${M(68.5)};height:${M(5.4)};background:#fff"></div>
     <div class="t" style="left:${M(11.9)};top:${M(63.9)};font-size:${P(8.5)};color:#000">PRECIO REGULAR</div>
-    <div class="t" style="left:${M(40)};top:${M(63.9)};width:${M(35.3)};text-align:right;font-size:${P(8.5)};color:#000">${reg}</div>
+    <div class="t" style="left:${M(40)};top:${M(63.9)};width:${M(35.3)};text-align:right;font-size:${P(8.5)};color:#000">${reg}</div>`:""}
     <div class="t" style="left:0;top:${M(81.7)};width:${M(85)};text-align:center;font-size:${P(31)};font-weight:700;color:#fff">${of}</div>
     ${p?`<div class="t" style="left:${M(7.5)};top:${M(101.1)};font-size:${P(7.8)};color:#fff">Ll\u00e9vatelo con el</div>
         <div class="t" style="left:${M(7.6)};top:${M(105.5)};font-size:${P(24.8)};font-weight:700;color:#fff">${p}</div>
@@ -467,22 +461,8 @@ function render(){
 }
 
 /* ===================== UI ===================== */
-function buildMap(){
-  const g=$("mapgrid");
-  if(!S.headers.length){ g.innerHTML=`<div style="grid-column:1/-1" class="note">Conecta el portafolio para asignar columnas.</div>`; return; }
-  g.innerHTML = FIELDS.map(([f,l])=>{
-    const opts=`<option value="">— sin usar —</option>`+S.headers.map((h,i)=>
-      `<option value="${i}"${S.map[f]===i?" selected":""}>${esc(h)}</option>`).join("");
-    return `<label for="m_${f}">${l}</label><select id="m_${f}" data-f="${f}">${opts}</select>`;
-  }).join("");
-  g.querySelectorAll("select").forEach(s=>s.addEventListener("change",e=>{
-    const f=e.target.dataset.f, v=e.target.value;
-    if(v==="") delete S.map[f]; else S.map[f]=+v;
-    save(); renderResults($("q").value); render();
-  }));
-}
 function search(term){
-  if(!S.connected||!S.rows.length) return [];
+  if(!S.listo||!S.rows.length) return [];
   const t=NORM(term); if(t.length<2) return [];
   const out=[];
   for(const row of S.rows){
@@ -494,21 +474,21 @@ function search(term){
 }
 function renderResults(term){
   const box=$("res");
-  if(!S.connected){ box.innerHTML=`<div class="note">Primero conecta el portafolio en el paso 01.</div>`; return; }
+  if(!S.listo) return;
   const hits=search(term||"");
   if(!term||term.length<2){ box.innerHTML=`<div class="note">Escribe al menos 2 caracteres.</div>`; return; }
   if(!hits.length){ box.innerHTML=`<div class="note">Sin resultados para «${esc(term)}».</div>`; return; }
   box.innerHTML=hits.map((r,i)=>`<button class="rescard" data-i="${i}">
     ${r.foto?`<img src="${esc(r.foto)}" alt="" onerror="this.style.visibility='hidden'">`:`<img alt="">`}
     <span class="rc"><b>${esc(r.nombre||"(sin nombre)")}</b>
-    <small>${esc(r.sku)} · ${money(r.precioOferta)||money(r.precioLista)||"sin precio"}</small></span>
+    <small>${esc(r.sku)} · ${money(r.precioOferta)||"sin precio"}${r.conDcto?` · -${r.dcto}%`:""} · ${esc(r.estado||"")}</small></span>
   </button>`).join("");
   box.querySelectorAll(".rescard").forEach(b=>b.addEventListener("click",()=>{
     addToQueue(hits[+b.dataset.i]); }));
 }
 function addToQueue(r, qty){
   const ex=S.queue.find(q=>q.sku===r.sku);
-  if(ex){ ex.qty+= (qty||1); } else { S.queue.push({...r, tipo:"linea", qty:qty||1}); }
+  if(ex){ ex.qty+= (qty||1); } else { S.queue.push({...r, qty:qty||1}); }
   save(); renderQueue(); render();
   toast(`${r.nombre||r.sku} agregado a la cola.`);
 }
@@ -535,34 +515,28 @@ function renderQueue(){
 
 /* ===================== arranque ===================== */
 load();
-$("sheetId").value=S.sheetId; $("tabPrecios").value=S.tabPrecios; $("tabFotos").value=S.tabFotos;
-$("ox").value=S.ox; $("oy").value=S.oy; $("startAt").value=S.startAt;
-$("outline").checked=S.outline; $("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
-buildMap(); renderQueue(); renderResults(""); render();
+$("startAt").value=S.startAt; $("outline") && ($("outline").checked=S.outline);
+$("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
+renderQueue(); render();
+cargarPortafolio(true);
 
-$("sheetId").addEventListener("input",e=>{S.sheetId=e.target.value.trim();save();});
-$("tabPrecios").addEventListener("input",e=>{S.tabPrecios=e.target.value;save();});
-$("tabFotos").addEventListener("input",e=>{S.tabFotos=e.target.value;save();});
-$("btnConnect").addEventListener("click",connect);
 let qt; $("q").addEventListener("input",e=>{ clearTimeout(qt); const v=e.target.value; qt=setTimeout(()=>renderResults(v),160); });
+$("btnReload").addEventListener("click",()=>cargarPortafolio(false));
 $("btnBulk").addEventListener("click",()=>{
-  if(!S.connected){ toast("Conecta el portafolio primero."); return; }
+  if(!S.listo){ toast("El portafolio todavía no está cargado."); return; }
   const lines=$("bulk").value.split("\n").map(l=>l.trim()).filter(Boolean);
   let ok=0; const miss=[];
   for(const line of lines){
     const [sk,c]=line.split(/[,;\t]/).map(s=>(s||"").trim());
-    const row=S.rows.find(r=>String(r[S.map.sku]??"").trim()===sk);
+    const row=S.rows.find(r=>String(r[S.idx.sku]??"").trim()===sk);
     if(row){ addToQueueSilent(rec(row), Math.max(1,parseInt(c||"1",10)||1)); ok++; } else miss.push(sk);
   }
   save(); renderQueue(); render();
   toast(miss.length ? `${ok} agregados. Sin coincidencia: ${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}` : `${ok} productos agregados.`);
 });
-function addToQueueSilent(r,qty){ const ex=S.queue.find(q=>q.sku===r.sku);
-  if(ex) ex.qty+=qty; else S.queue.push({...r,tipo:"linea",qty}); }
 $("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); render(); });
-["ox","oy","startAt"].forEach(k=>$(k).addEventListener("input",e=>{
-  const v=parseFloat(e.target.value); if(isFinite(v)){ S[k]=v; save(); render(); } }));
-$("outline").addEventListener("change",e=>{S.outline=e.target.checked;save();render();});
+$("startAt").addEventListener("input",e=>{ const v=parseInt(e.target.value,10);
+  if(isFinite(v)){ S.startAt=Math.min(4,Math.max(1,v)); save(); render(); } });
 $("zoom").addEventListener("input",e=>{S.zoom=+e.target.value;$("zv").textContent=S.zoom+"%";save();render();});
 $("btnPrint").addEventListener("click",()=>{ if(!expand().length){toast("No hay etiquetas en la cola.");return;} window.print(); });
 $("btnTheme").addEventListener("click",()=>{ const c=document.documentElement.getAttribute("data-theme");
