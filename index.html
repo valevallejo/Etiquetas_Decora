@@ -109,7 +109,7 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .sheetlabel{position:absolute;top:-19px;left:0;font:500 11px/1 "IBM Plex Mono",monospace;color:var(--muted)}
 .sheet{background:#fff;position:relative;transform-origin:top left;overflow:hidden}
 .slot{position:absolute;overflow:hidden}
-.slot.outline{outline:.25mm dashed #C4C9C2;outline-offset:-.25mm}
+.guia{position:absolute;background:#C2C7C1}
 .empty{text-align:center;color:var(--muted);max-width:400px;margin:70px auto;font-size:13.5px;line-height:1.6}
 .empty h2{font-size:16px;color:var(--ink);margin:0 0 6px}
 
@@ -136,7 +136,6 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
   .sheetwrap{filter:none;width:auto!important;height:auto!important;break-after:page}
   .sheetwrap:last-child{break-after:auto}
   .sheet{transform:none!important}
-  .slot.outline{outline:none}
 }
 @page{size:215.9mm 279.4mm;margin:0}
 
@@ -196,6 +195,8 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
           <input type="number" id="startAt" min="1" max="4" value="1" style="width:52px">
           <span>de 4</span></div>
         <div class="spacer"></div>
+        <label class="check" style="font-size:12px"><input type="checkbox" id="guias" checked> Guías de corte</label>
+        <div class="sep"></div>
         <button class="btn sm" id="btnReload" title="Vuelve a leer el portafolio">Actualizar portafolio</button>
         <div class="sep"></div>
         <div class="zoom"><label for="zoom">Vista</label><input type="range" id="zoom" min="25" max="120" value="55"><span id="zv" style="font-family:'IBM Plex Mono',monospace">55%</span></div>
@@ -225,7 +226,7 @@ const COLMAP = {
 };
 const S = {
   headers: [], rows: [], idx: {}, fotos: {},
-  queue: [], ox:0, oy:0, startAt:1, outline:true, zoom:55, listo:false
+  queue: [], ox:0, oy:0, startAt:1, guias:true, zoom:55, listo:false
 };
 
 const $ = id => document.getElementById(id);
@@ -243,7 +244,7 @@ function money(v){ const n=nnum(v); if(!n) return "";
   return "$"+new Intl.NumberFormat("es-CO",{maximumFractionDigits:0}).format(Math.round(n)); }
 
 /* ===================== persistencia ===================== */
-const KEYS=["queue","startAt","outline","zoom"];
+const KEYS=["queue","startAt","guias","zoom"];
 const save=()=>{ try{ localStorage.setItem("etiquetas-decora",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,S[k]])))); }catch(e){} };
 const load=()=>{ try{ const r=localStorage.getItem("etiquetas-decora"); if(r) Object.assign(S,JSON.parse(r)); }catch(e){} };
 
@@ -426,10 +427,26 @@ function fitText(root){
 
 /* ===================== render ===================== */
 const PAGE=[215.9,279.4], LW=85, LH=125, COLS=2, ROWS=2;
-const ML=(PAGE[0]-COLS*LW)/2, MT=(PAGE[1]-ROWS*LH)/2;
+// Marco blanco que queda alrededor de cada etiqueta al recortar por las guías.
+const MARGEN=4;
+const CW=LW+2*MARGEN, CH=LH+2*MARGEN;          // celda de corte: 93 × 133 mm
+const ML=(PAGE[0]-COLS*CW)/2, MT=(PAGE[1]-ROWS*CH)/2;
 function expand(){ const out=[];
   for(const q of S.queue){ const n=Math.max(1,Math.min(200,q.qty|0||1)); for(let i=0;i<n;i++) out.push(q); }
   return out; }
+/* Guías de corte: una rejilla que nunca cruza el arte, porque el blanco
+   entre etiquetas mide justo el doble del margen de cada una. */
+function guias(){
+  const o=3, x0=ML+S.ox, y0=MT+S.oy;
+  let g="";
+  for(let i=0;i<=COLS;i++)
+    g+=`<div class="guia" style="left:${(x0+i*CW).toFixed(2)}mm;top:${(y0-o).toFixed(2)}mm;
+        width:.2mm;height:${(ROWS*CH+2*o).toFixed(2)}mm"></div>`;
+  for(let j=0;j<=ROWS;j++)
+    g+=`<div class="guia" style="left:${(x0-o).toFixed(2)}mm;top:${(y0+j*CH).toFixed(2)}mm;
+        height:.2mm;width:${(COLS*CW+2*o).toFixed(2)}mm"></div>`;
+  return g;
+}
 function render(){
   const items=expand(), per=COLS*ROWS;
   const start=Math.max(0,Math.min(per-1,(S.startAt|0)-1));
@@ -446,12 +463,12 @@ function render(){
   for(let s=0;s<sheets;s++){
     html+=`<div class="sheetwrap" style="width:${(PAGE[0]*z).toFixed(2)}mm;height:${(PAGE[1]*z).toFixed(2)}mm">
       <div class="sheetlabel">Hoja ${s+1} de ${sheets}</div>
-      <div class="sheet" style="width:${PAGE[0]}mm;height:${PAGE[1]}mm;transform:scale(${z})">`;
+      <div class="sheet" style="width:${PAGE[0]}mm;height:${PAGE[1]}mm;transform:scale(${z})">${S.guias?guias():""}`;
     for(let i=0;i<per;i++){
       const idx=s*per+i-start, q=(idx>=0&&idx<items.length)?items[idx]:null;
       const col=i%COLS, row=Math.floor(i/COLS);
-      const x=ML+S.ox+col*LW, y=MT+S.oy+row*LH;
-      html+=`<div class="slot${S.outline?" outline":""}" style="left:${x.toFixed(2)}mm;top:${y.toFixed(2)}mm;width:${LW}mm;height:${LH}mm">
+      const x=ML+S.ox+col*CW+MARGEN, y=MT+S.oy+row*CH+MARGEN;
+      html+=`<div class="slot" style="left:${x.toFixed(2)}mm;top:${y.toFixed(2)}mm;width:${LW}mm;height:${LH}mm">
         ${q?(TPL[q.tipo]||tplLinea)(q):""}</div>`;
     }
     html+=`</div></div>`;
@@ -515,7 +532,7 @@ function renderQueue(){
 
 /* ===================== arranque ===================== */
 load();
-$("startAt").value=S.startAt; $("outline") && ($("outline").checked=S.outline);
+$("startAt").value=S.startAt; $("guias").checked=S.guias;
 $("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
 renderQueue(); render();
 cargarPortafolio(true);
@@ -537,6 +554,7 @@ $("btnBulk").addEventListener("click",()=>{
 $("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); render(); });
 $("startAt").addEventListener("input",e=>{ const v=parseInt(e.target.value,10);
   if(isFinite(v)){ S.startAt=Math.min(4,Math.max(1,v)); save(); render(); } });
+$("guias").addEventListener("change",e=>{S.guias=e.target.checked;save();render();});
 $("zoom").addEventListener("input",e=>{S.zoom=+e.target.value;$("zv").textContent=S.zoom+"%";save();render();});
 $("btnPrint").addEventListener("click",()=>{ if(!expand().length){toast("No hay etiquetas en la cola.");return;} window.print(); });
 $("btnTheme").addEventListener("click",()=>{ const c=document.documentElement.getAttribute("data-theme");
