@@ -109,13 +109,16 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .sheetlabel{position:absolute;top:-19px;left:0;font:500 11px/1 "IBM Plex Mono",monospace;color:var(--muted)}
 .sheet{background:#fff;position:relative;transform-origin:top left;overflow:hidden}
 .slot{position:absolute;overflow:hidden}
-.guia{position:absolute;background:#C2C7C1}
+.guia{position:absolute;border:0 solid #9AA29A}
 .empty{text-align:center;color:var(--muted);max-width:400px;margin:70px auto;font-size:13.5px;line-height:1.6}
 .empty h2{font-size:16px;color:var(--ink);margin:0 0 6px}
 
 /* ============ ETIQUETAS · medidas tomadas del archivo original ============ */
 .lbl{width:85mm;height:125mm;position:relative;background:#fff;overflow:hidden;
   font-family:"Figtree","Poppins",system-ui,sans-serif;color:#616E5F}
+/* Los colores de la etiqueta no son decoración: deben imprimirse siempre. */
+.lbl,.lbl *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.lbl svg.fondo{position:absolute;left:0;top:0;display:block}
 .lbl .inner{position:absolute;left:0;top:0;transform-origin:top left}
 .lbl .bg{position:absolute}
 .lbl .t{position:absolute;line-height:1;white-space:nowrap;font-weight:400}
@@ -364,10 +367,12 @@ function tplLinea(r){
     : `<div class="t" style="left:${M(4.6)};top:${M(97.3)};font-size:${P(5.7)};font-weight:700;color:#616E5F">PRECIO</div>
        <div class="t" style="left:${M(19.2)};top:${M(95.9)};font-size:${P(19.4)};font-weight:700;color:#616E5F">${oferta}</div>`;
   return `<div class="lbl"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
-    <div class="bg" style="left:0;top:0;width:${M(85)};height:${M(16.6)};background:#F3EFE3"></div>
-    <div class="bg" style="left:0;top:${M(89.5)};width:${M(85)};height:${M(19.5)};background:#F3EFE3"></div>
-    <div class="bg" style="left:0;top:${M(108.9)};width:${M(34.8)};height:${M(16.1)};background:#4FB9A8"></div>
-    <div class="bg" style="left:${M(34.8)};top:${M(108.9)};width:${M(50.2)};height:${M(16.1)};background:#137A66"></div>
+    <svg class="fondo" width="${M(85)}" height="${M(125)}" viewBox="0 0 85 125" aria-hidden="true">
+      <rect x="0" y="0" width="85" height="16.6" fill="#F3EFE3"/>
+      <rect x="0" y="89.5" width="85" height="19.5" fill="#F3EFE3"/>
+      <rect x="0" y="108.9" width="34.8" height="16.1" fill="#4FB9A8"/>
+      <rect x="34.8" y="108.9" width="50.2" height="16.1" fill="#137A66"/>
+    </svg>
     <img class="asset" src="${LOGO_JAMAR}" alt="Jamar" style="left:${M(74.76)};top:${M(1.19)};width:${M(8.55)}">
     <div class="t" style="left:${M(3)};top:${M(3.9)};font-size:${P(10.1)};color:#616E5F">${esc(r.sku)}</div>
     <div class="t fit1" data-max="${12*K}" style="left:${M(2.9)};top:${M(8.4)};width:${M(70)};height:${M(7.6)};font-size:${P(12)};font-weight:700;color:#616E5F">${esc(r.nombre)}</div>
@@ -390,15 +395,17 @@ function tplLiquidacion(r){
   const f=fechaHoy(), p=r.conDcto?r.dcto:0;
   const reg=money(r.precioLista), of=money(r.precioOferta)||money(r.precioLista);
   return `<div class="lbl" style="color:#fff"><div class="inner" style="width:${M(85)};height:${M(125)};transform:scale(${(1/K)})">
-    <div class="bg" style="left:0;top:0;width:${M(85)};height:${M(125)};background:#E53628"></div>
-    <div class="bg" style="left:${M(2.2)};top:${M(2.6)};width:${M(81)};height:${M(119.9)};border:${M(0.38)} solid #fff"></div>
+    <svg class="fondo" width="${M(85)}" height="${M(125)}" viewBox="0 0 85 125" aria-hidden="true">
+      <rect x="0" y="0" width="85" height="125" fill="#E53628"/>
+      <rect x="2.39" y="2.79" width="80.62" height="119.52" fill="none" stroke="#fff" stroke-width="0.38"/>
+      ${p?`<rect x="8.5" y="62.5" width="68.5" height="5.4" fill="#fff"/>`:""}
+    </svg>
     <div class="t" style="left:0;top:${M(7.9)};width:${M(85)};text-align:center;font-size:${P(22.5)};font-weight:500;color:#fff">PRODUCTO EN</div>
     <div class="t" style="left:0;top:${M(15.3)};width:${M(85)};text-align:center;font-size:${P(22.5)};font-weight:500;color:#fff">LIQUIDACI\u00d3N</div>
     <div class="t" style="left:0;top:${M(24.1)};width:${M(85)};text-align:center;font-size:${P(17.8)};font-weight:500;color:#fff">\u00daNICA UNIDAD</div>
     <div class="t" style="left:${M(8.2)};top:${M(38.8)};font-size:${P(10.3)};color:#fff">${esc(r.sku)}</div>
     <div class="t fit1" data-max="${12*K}" style="left:${M(8.2)};top:${M(44.3)};width:${M(69)};height:${M(11)};font-size:${P(12)};font-weight:700;color:#fff">${esc(r.nombre)}</div>
-    ${p?`<div class="bg" style="left:${M(8.5)};top:${M(62.5)};width:${M(68.5)};height:${M(5.4)};background:#fff"></div>
-    <div class="t" style="left:${M(11.9)};top:${M(63.9)};font-size:${P(8.5)};color:#000">PRECIO REGULAR</div>
+    ${p?`<div class="t" style="left:${M(11.9)};top:${M(63.9)};font-size:${P(8.5)};color:#000">PRECIO REGULAR</div>
     <div class="t" style="left:${M(40)};top:${M(63.9)};width:${M(35.3)};text-align:right;font-size:${P(8.5)};color:#000">${reg}</div>`:""}
     <div class="t" style="left:0;top:${M(81.7)};width:${M(85)};text-align:center;font-size:${P(31)};font-weight:700;color:#fff">${of}</div>
     ${p?`<div class="t" style="left:${M(7.5)};top:${M(101.1)};font-size:${P(7.8)};color:#fff">Ll\u00e9vatelo con el</div>
@@ -453,10 +460,10 @@ function guias(){
   const bordeX = v => v<1.5 || v>PAGE[0]-1.5;
   for(let i=0;i<=COLS;i++){ const x=x0+i*CW; if(bordeX(x)) continue;
     g+=`<div class="guia" style="left:${x.toFixed(2)}mm;top:${Math.max(0,y0-o).toFixed(2)}mm;
-        width:.2mm;height:${Math.min(PAGE[1],ROWS*CH+2*o).toFixed(2)}mm"></div>`; }
+        width:0;border-left-width:.2mm;height:${Math.min(PAGE[1],ROWS*CH+2*o).toFixed(2)}mm"></div>`; }
   for(let j=0;j<=ROWS;j++){ const y=y0+j*CH; if(borde(y)) continue;
     g+=`<div class="guia" style="left:${Math.max(0,x0-o).toFixed(2)}mm;top:${y.toFixed(2)}mm;
-        height:.2mm;width:${Math.min(PAGE[0],COLS*CW+2*o).toFixed(2)}mm"></div>`; }
+        height:0;border-top-width:.2mm;width:${Math.min(PAGE[0],COLS*CW+2*o).toFixed(2)}mm"></div>`; }
   return g;
 }
 function render(){
