@@ -145,6 +145,20 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 }
 @page{size:215.9mm 279.4mm;margin:0}
 
+.backdrop{position:fixed;inset:0;background:rgba(12,18,14,.45);display:flex;align-items:center;
+  justify-content:center;z-index:60;padding:20px}
+.backdrop[hidden]{display:none}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 24px;
+  max-width:440px;width:100%;box-shadow:0 18px 50px rgba(10,20,16,.3)}
+.modal h2{font-size:16px;margin:0 0 4px;font-weight:700}
+.modal-sub{font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+.ajustes{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:1px;
+  border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.ajustes li{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;background:var(--panel-2);
+  font-size:13px;align-items:baseline}
+.ajustes b{font-weight:500}
+.ajustes span{font:500 12.5px/1 "IBM Plex Mono",monospace;color:var(--accent);white-space:nowrap}
+.modal-acts{display:flex;gap:8px;align-items:center}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);background:var(--ink);
   color:var(--panel);padding:10px 16px;border-radius:7px;font-size:13px;opacity:0;pointer-events:none;
   transition:opacity .18s,transform .18s;z-index:50;max-width:min(560px,90vw)}
@@ -213,6 +227,27 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="backdrop" id="backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <h2 id="mt">Revisa estos cuatro ajustes</h2>
+    <p class="modal-sub">Si alguno está distinto, las etiquetas no salen a 85 × 125 mm.</p>
+    <ul class="ajustes">
+      <li><b>Tamaño de papel</b><span>Carta</span></li>
+      <li><b>Escala</b><span>100 · no «Ajustar»</span></li>
+      <li><b>Márgenes</b><span>Ninguno</span></li>
+      <li><b>Encabezado y pie de página</b><span>desmarcado</span></li>
+    </ul>
+    <p class="modal-sub">En Edge y Chrome, <b>Escala</b> está escondida: abre <b>Más opciones</b>
+      al final del panel de impresión. Suele quedarse guardada de la última vez.</p>
+    <div class="modal-acts">
+      <label class="check" style="font-size:12px;margin-right:auto">
+        <input type="checkbox" id="noVerMas"> No volver a mostrar</label>
+      <button class="btn" id="mCancel">Cancelar</button>
+      <button class="btn primary" id="mGo">Continuar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const LOGO_JAMAR = "data:image/png;base64,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";
@@ -586,7 +621,20 @@ $("startAt").addEventListener("input",e=>{ const v=parseInt(e.target.value,10);
   if(isFinite(v)){ S.startAt=Math.min(4,Math.max(1,v)); save(); render(); } });
 $("guias").addEventListener("change",e=>{S.guias=e.target.checked;save();render();});
 $("zoom").addEventListener("input",e=>{S.zoom=+e.target.value;$("zv").textContent=S.zoom+"%";save();render();});
-$("btnPrint").addEventListener("click",()=>{ if(!expand().length){toast("No hay etiquetas en la cola.");return;} window.print(); });
+function imprimir(){ window.print(); }
+$("btnPrint").addEventListener("click",()=>{
+  if(!expand().length){ toast("No hay etiquetas en la cola."); return; }
+  let saltar=false; try{ saltar = localStorage.getItem("etiquetas-saltar-aviso")==="1"; }catch(e){}
+  if(saltar){ imprimir(); return; }
+  $("backdrop").hidden=false; $("mGo").focus();
+});
+$("mCancel").addEventListener("click",()=>{ $("backdrop").hidden=true; });
+$("backdrop").addEventListener("click",e=>{ if(e.target===$("backdrop")) $("backdrop").hidden=true; });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("backdrop").hidden=true; });
+$("mGo").addEventListener("click",()=>{
+  if($("noVerMas").checked){ try{ localStorage.setItem("etiquetas-saltar-aviso","1"); }catch(e){} }
+  $("backdrop").hidden=true; setTimeout(imprimir,60);
+});
 $("btnTheme").addEventListener("click",()=>{ const c=document.documentElement.getAttribute("data-theme");
   const n=c==="dark"?"light":c==="light"?"":"dark";
   if(n) document.documentElement.setAttribute("data-theme",n); else document.documentElement.removeAttribute("data-theme"); });
