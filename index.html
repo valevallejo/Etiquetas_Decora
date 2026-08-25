@@ -223,8 +223,8 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
         <div class="aviso" id="aviso" hidden></div>
         <div class="sep"></div>
         <div class="zoom"><label for="startAt">Empezar en</label>
-          <input type="number" id="startAt" min="1" max="4" value="1" style="width:52px">
-          <span>de 4</span></div>
+          <input type="number" id="startAt" min="1" max="40" value="1" style="width:56px">
+          <span title="Para reusar láminas empezadas">la etiqueta #</span></div>
         <div class="spacer"></div>
         <label class="check" style="font-size:12px"><input type="checkbox" id="guias" checked> Guías de corte</label>
         <div class="sep"></div>
@@ -286,7 +286,9 @@ const esGrande = nombre => { const n=NORM(nombre); return PREFIJOS_GRANDE.some(p
 // el papel manteniéndolo igual por los cuatro lados.
 const FORMATOS = {
   grande:  { LW:85, LH:125, COLS:2, ROWS:2, MARGEN:7.35 },
-  pequeno: { LW:50.8, LH:25.4, COLS:4, ROWS:9, MARGEN:1.59 }
+  // Lámina precortada de 40 stickers: 4 × 10 sin calles. Los márgenes salen solos
+  // al centrar (6,35 mm a los lados y 12,7 arriba y abajo = 0,25" y 0,5").
+  pequeno: { LW:50.8, LH:25.4, COLS:4, ROWS:10, MARGEN:0, precortada:true }
 };
 for(const f of Object.values(FORMATOS)){
   f.CW=f.LW+2*f.MARGEN; f.CH=f.LH+2*f.MARGEN;
@@ -570,6 +572,7 @@ function expand(){ const out=[];
 function guias(f){
   const o=3, x0=f.ML+S.ox, y0=f.MT+S.oy;
   let g="";
+  if(!f.precortada){
   const bordeY = v => v<1.5 || v>PAGE[1]-1.5;   // guías sobre el filo del papel: no se dibujan
   const bordeX = v => v<1.5 || v>PAGE[0]-1.5;
   for(let i=0;i<=f.COLS;i++){ const x=x0+i*f.CW; if(bordeX(x)) continue;
@@ -578,13 +581,14 @@ function guias(f){
   for(let j=0;j<=f.ROWS;j++){ const y=y0+j*f.CH; if(bordeY(y)) continue;
     g+=`<div class="guia" style="left:${Math.max(0,x0-o).toFixed(2)}mm;top:${y.toFixed(2)}mm;
         height:0;border-top-width:.2mm;width:${Math.min(PAGE[0],f.COLS*f.CW+2*o).toFixed(2)}mm"></div>`; }
-  // Regla de control de escala, en papel que se recorta y se bota.
-  const rx=Math.max(2, Math.min(6, f.ML-2)), ra=60, rb=160;
-  if(f.ML>4){
-    g+=`<div class="guia" style="left:${rx}mm;top:${ra}mm;width:0;border-left-width:.2mm;height:${rb-ra}mm"></div>`;
+  }
+  // Regla de control de escala, en el margen que no lleva etiqueta.
+  const rx=f.ML/2, ancho=Math.min(4, Math.max(1.6, f.ML-1.5)), ra=60, rb=160;
+  if(f.ML>3){
+    g+=`<div class="guia" style="left:${rx.toFixed(2)}mm;top:${ra}mm;width:0;border-left-width:.2mm;height:${rb-ra}mm"></div>`;
     for(const y of [ra,rb])
-      g+=`<div class="guia" style="left:${rx-2}mm;top:${y}mm;height:0;border-top-width:.35mm;width:4mm"></div>`;
-    g+=`<div class="regla" style="left:${rx-0.6}mm;top:${(ra+rb)/2+9}mm">100 mm</div>`;
+      g+=`<div class="guia" style="left:${(rx-ancho/2).toFixed(2)}mm;top:${y}mm;height:0;border-top-width:.35mm;width:${ancho.toFixed(2)}mm"></div>`;
+    if(f.ML>5) g+=`<div class="regla" style="left:${(rx-0.6).toFixed(2)}mm;top:${(ra+rb)/2+9}mm">100 mm</div>`;
   }
   return g;
 }
@@ -616,7 +620,8 @@ function render(){
   if(!validos.length){
     c.innerHTML=`<div class="empty"><h2>La cola está vacía</h2>
       Busca un producto por SKU y agrégalo. Alfombras, cuadros y espejos salen en etiqueta de
-      85 × 125 mm; el resto en sticker de 50,8 × 25,4 mm.</div>`;
+      85 × 125 mm, 4 por hoja para recortar; el resto en sticker de 50,8 × 25,4 mm, 40 por
+      lámina precortada.</div>`;
     return;
   }
   let html="", n=0;
@@ -624,7 +629,7 @@ function render(){
     const f=FORMATOS[k], per=f.COLS*f.ROWS;
     const start=Math.max(0,Math.min(per-1,(S.startAt|0)-1));
     const nh=Math.max(1,Math.ceil((arr.length+start)/per));
-    const nombre = k==="grande" ? "etiqueta 85 × 125 mm" : "sticker 50,8 × 25,4 mm";
+    const nombre = k==="grande" ? "etiqueta 85 × 125 mm · recortar" : "sticker 50,8 × 25,4 mm · lámina precortada de 40";
     for(let s=0;s<nh;s++){
       n++;
       html+=`<div class="sheetwrap" style="width:${(PAGE[0]*z).toFixed(2)}mm;height:${(PAGE[1]*z).toFixed(2)}mm">
@@ -728,7 +733,7 @@ $("btnBulk").addEventListener("click",()=>{
 });
 $("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); render(); });
 $("startAt").addEventListener("input",e=>{ const v=parseInt(e.target.value,10);
-  if(isFinite(v)){ S.startAt=Math.min(4,Math.max(1,v)); save(); render(); } });
+  if(isFinite(v)){ S.startAt=Math.min(40,Math.max(1,v)); save(); render(); } });
 $("guias").addEventListener("change",e=>{S.guias=e.target.checked;save();render();});
 $("zoom").addEventListener("input",e=>{S.zoom=+e.target.value;$("zv").textContent=S.zoom+"%";save();render();});
 function imprimir(){ window.print(); }
