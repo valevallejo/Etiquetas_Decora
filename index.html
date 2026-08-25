@@ -112,6 +112,15 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .sheet{background:#fff;position:relative;transform-origin:top left;overflow:hidden}
 .slot{position:absolute;overflow:hidden}
 .guia{position:absolute;border:0 solid #9AA29A}
+.posgrupo{margin-bottom:14px}
+.posgrupo h4{font-size:12px;margin:0 0 3px;font-weight:600}
+.posgrupo p{font-size:11px;color:var(--muted);margin:0 0 7px}
+.posgrid{display:grid;gap:2px;background:var(--line);padding:2px;border-radius:5px;border:1px solid var(--line)}
+.poscel{background:var(--panel-2);border:none;cursor:pointer;font:500 9px/1 "IBM Plex Mono",monospace;
+  color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0}
+.poscel:hover{background:var(--panel);color:var(--ink)}
+.poscel.usada{background:repeating-linear-gradient(45deg,var(--line-soft),var(--line-soft) 3px,transparent 3px,transparent 6px);color:transparent}
+.poscel.inicio{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .aviso{font-size:12px;color:var(--warn);background:var(--panel-2);border:1px solid var(--line);
   border-radius:5px;padding:5px 9px;line-height:1.35;max-width:420px}
 .aviso[hidden]{display:none}
@@ -213,6 +222,15 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
         <div class="sbody"><div class="queue" id="queue"></div></div>
       </details>
 
+      <details class="sect" id="secPos" hidden>
+        <summary><span class="step">04</span>Posición de inicio <span class="hint" id="posHint"></span></summary>
+        <div class="sbody">
+          <p class="note">Para reusar hojas ya empezadas: haz clic en la casilla donde debe
+            caer la primera etiqueta. Solo afecta a la primera hoja de cada formato.</p>
+          <div id="posBox"></div>
+        </div>
+      </details>
+
     </aside>
 
     <section class="stage">
@@ -221,10 +239,6 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
         <div class="sep"></div>
         <div class="metric"><b id="mSheets">0</b><span>hojas</span></div>
         <div class="aviso" id="aviso" hidden></div>
-        <div class="sep"></div>
-        <div class="zoom"><label for="startAt">Empezar en</label>
-          <input type="number" id="startAt" min="1" max="40" value="1" style="width:56px">
-          <span title="Para reusar láminas empezadas">la etiqueta #</span></div>
         <div class="spacer"></div>
         <label class="check" style="font-size:12px"><input type="checkbox" id="guias" checked> Guías de corte</label>
         <div class="sep"></div>
@@ -296,7 +310,7 @@ for(const f of Object.values(FORMATOS)){
 }
 const S = {
   headers: [], rows: [], idx: {}, fotos: {},
-  queue: [], ox:0, oy:0, startAt:1, guias:true, zoom:55, listo:false
+  queue: [], ox:0, oy:0, inicio:{grande:1,pequeno:1}, guias:true, zoom:55, listo:false
 };
 
 const $ = id => document.getElementById(id);
@@ -314,7 +328,7 @@ function money(v){ const n=nnum(v); if(!n) return "";
   return "$"+new Intl.NumberFormat("es-CO",{maximumFractionDigits:0}).format(Math.round(n)); }
 
 /* ===================== persistencia ===================== */
-const KEYS=["queue","startAt","guias","zoom"];
+const KEYS=["queue","inicio","guias","zoom"];
 const save=()=>{ try{ localStorage.setItem("etiquetas-decora",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,S[k]])))); }catch(e){} };
 const load=()=>{ try{ const r=localStorage.getItem("etiquetas-decora"); if(r) Object.assign(S,JSON.parse(r)); }catch(e){} };
 
@@ -602,7 +616,7 @@ function render(){
   let hojas=0;
   for(const [k,arr] of grupos){
     const f=FORMATOS[k], per=f.COLS*f.ROWS;
-    const start=Math.max(0,Math.min(per-1,(S.startAt|0)-1));
+    const start=Math.max(0,Math.min(per-1,((S.inicio[k]|0)||1)-1));
     hojas+=Math.max(1,Math.ceil((arr.length+start)/per));
   }
   $("mLab").textContent=validos.length;
@@ -627,7 +641,7 @@ function render(){
   let html="", n=0;
   for(const [k,arr] of grupos){
     const f=FORMATOS[k], per=f.COLS*f.ROWS;
-    const start=Math.max(0,Math.min(per-1,(S.startAt|0)-1));
+    const start=Math.max(0,Math.min(per-1,((S.inicio[k]|0)||1)-1));
     const nh=Math.max(1,Math.ceil((arr.length+start)/per));
     const nombre = k==="grande" ? "etiqueta 85 × 125 mm · recortar" : "sticker 50,8 × 25,4 mm · lámina precortada de 40";
     for(let s=0;s<nh;s++){
@@ -647,6 +661,33 @@ function render(){
   }
   c.innerHTML=html;
   fitText(c);
+}
+
+/* Selector visual de la posición donde arranca la primera hoja de cada formato. */
+function renderPos(){
+  const enCola = k => S.queue.some(q => (q.tam||"grande")===k && plantilla(q));
+  const grupos = [["grande","Etiqueta 85 × 125 mm","4 posiciones · 2 × 2"],
+                  ["pequeno","Sticker 50,8 × 25,4 mm","40 posiciones · 4 × 10"]].filter(g=>enCola(g[0]));
+  const sec=$("secPos");
+  if(!grupos.length){ sec.hidden=true; $("posHint").textContent=""; return; }
+  sec.hidden=false;
+  $("posHint").textContent = grupos.map(g=>`${g[0]==="grande"?"G":"S"}${S.inicio[g[0]]}`).join(" · ");
+  $("posBox").innerHTML = grupos.map(([k,titulo,sub])=>{
+    const f=FORMATOS[k], per=f.COLS*f.ROWS, ini=S.inicio[k]||1;
+    const alto = k==="grande" ? 42 : 15;
+    const celdas = Array.from({length:per},(_,i)=>{
+      const n=i+1, cls = n<ini ? "usada" : n===ini ? "inicio" : "";
+      return `<button class="poscel ${cls}" data-k="${k}" data-n="${n}" style="height:${alto}px"
+        title="Empezar en la ${n}">${n}</button>`;
+    }).join("");
+    return `<div class="posgrupo"><h4>${titulo}</h4><p>${sub} · empieza en la ${ini}</p>
+      <div class="posgrid" style="grid-template-columns:repeat(${f.COLS},1fr)">${celdas}</div></div>`;
+  }).join("");
+  $("posBox").querySelectorAll(".poscel").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.k, n=+b.dataset.n;
+    S.inicio[k] = (S.inicio[k]===n) ? 1 : n;      // volver a hacer clic vuelve a la primera
+    save(); renderPos(); render();
+  }));
 }
 
 /* ===================== UI ===================== */
@@ -678,7 +719,7 @@ function renderResults(term){
 function addToQueue(r, qty){
   const ex=S.queue.find(q=>q.sku===r.sku);
   if(ex){ ex.qty+= (qty||1); } else { S.queue.push({...r, qty:qty||1}); }
-  save(); renderQueue(); render();
+  save(); renderQueue(); renderPos(); render();
   toast(`${r.nombre||r.sku} agregado a la cola.`);
 }
 function renderQueue(){
@@ -702,19 +743,19 @@ function renderQueue(){
   q.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("change",e=>{
     const i=+e.target.dataset.i, k=e.target.dataset.k;
     S.queue[i][k] = k==="qty" ? Math.max(1,Math.min(200,+e.target.value||1)) : e.target.value;
-    save(); renderQueue(); render();
+    save(); renderQueue(); renderPos(); render();
   }));
   q.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{
-    S.queue.splice(+b.dataset.del,1); save(); renderQueue(); render(); }));
+    S.queue.splice(+b.dataset.del,1); save(); renderQueue(); renderPos(); render(); }));
 }
 
 /* ===================== arranque ===================== */
 if(!(window.CSS && CSS.supports && CSS.supports("zoom","0.25")))
   document.documentElement.classList.add("sin-zoom");
 load();
-$("startAt").value=S.startAt; $("guias").checked=S.guias;
+$("guias").checked=S.guias;
 $("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
-renderQueue(); render();
+renderQueue(); renderPos(); render();
 cargarPortafolio(true);
 
 let qt; $("q").addEventListener("input",e=>{ clearTimeout(qt); const v=e.target.value; qt=setTimeout(()=>renderResults(v),160); });
@@ -728,12 +769,10 @@ $("btnBulk").addEventListener("click",()=>{
     const row=S.rows.find(r=>String(r[S.idx.sku]??"").trim()===sk);
     if(row){ addToQueueSilent(rec(row), Math.max(1,parseInt(c||"1",10)||1)); ok++; } else miss.push(sk);
   }
-  save(); renderQueue(); render();
+  save(); renderQueue(); renderPos(); render();
   toast(miss.length ? `${ok} agregados. Sin coincidencia: ${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}` : `${ok} productos agregados.`);
 });
-$("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); render(); });
-$("startAt").addEventListener("input",e=>{ const v=parseInt(e.target.value,10);
-  if(isFinite(v)){ S.startAt=Math.min(40,Math.max(1,v)); save(); render(); } });
+$("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); renderPos(); render(); });
 $("guias").addEventListener("change",e=>{S.guias=e.target.checked;save();render();});
 $("zoom").addEventListener("input",e=>{S.zoom=+e.target.value;$("zv").textContent=S.zoom+"%";save();render();});
 function imprimir(){ window.print(); }
