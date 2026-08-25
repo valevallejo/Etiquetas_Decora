@@ -130,9 +130,20 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .empty{text-align:center;color:var(--muted);max-width:400px;margin:70px auto;font-size:13.5px;line-height:1.6}
 .empty h2{font-size:16px;color:var(--ink);margin:0 0 6px}
 
+/* Geomanist se toma de la fuente instalada en el computador — el archivo nunca se
+   publica. Jamar tiene licencia de escritorio; si el equipo no la tiene, cae en Figtree. */
+@font-face{font-family:"Geomanist";font-weight:300;font-style:normal;font-display:swap;
+  src:local("Geomanist Light"),local("Geomanist-Light")}
+@font-face{font-family:"Geomanist";font-weight:400;font-style:normal;font-display:swap;
+  src:local("Geomanist"),local("Geomanist-Regular"),local("Geomanist Regular")}
+@font-face{font-family:"Geomanist";font-weight:500;font-style:normal;font-display:swap;
+  src:local("Geomanist Medium"),local("Geomanist-Medium")}
+@font-face{font-family:"Geomanist";font-weight:700;font-style:normal;font-display:swap;
+  src:local("Geomanist Bold"),local("Geomanist-Bold")}
+
 /* ============ ETIQUETAS · medidas tomadas del archivo original ============ */
 .lbl{width:85mm;height:125mm;position:relative;background:#fff;overflow:hidden;
-  font-family:"Figtree","Poppins",system-ui,sans-serif;color:#616E5F}
+  font-family:"Geomanist","Figtree",system-ui,sans-serif;color:#616E5F}
 /* Los colores de la etiqueta no son decoración: deben imprimirse siempre. */
 .lbl,.lbl *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .lbl svg.fondo{position:absolute;left:0;top:0;display:block}
@@ -188,7 +199,7 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 <div class="app">
   <header class="topbar">
     <div class="mark"></div>
-    <div class="tt"><h1>Etiquetas Decora</h1><span>Portafolio en vivo &rarr; etiquetas de 85 × 125 mm</span></div>
+    <div class="tt"><h1>Etiquetas Decora</h1><span id="tipo">Portafolio en vivo &rarr; etiquetas de 85 × 125 mm</span></div>
     <div class="spacer"></div>
     <button class="btn" id="btnTheme">Tema</button>
     <button class="btn" id="btnClear">Vaciar cola</button>
@@ -749,6 +760,25 @@ function renderQueue(){
     S.queue.splice(+b.dataset.del,1); save(); renderQueue(); renderPos(); render(); }));
 }
 
+/* ¿Está Geomanist instalada en este equipo? Se compara el ancho de un texto pedido
+   en Geomanist contra el mismo texto en una fuente de referencia. */
+function hayGeomanist(){
+  try{
+    const c=document.createElement("canvas").getContext("2d");
+    const txt="ABCDEFGHIJ0123456789";
+    c.font="700 40px monospace"; const base=c.measureText(txt).width;
+    c.font='700 40px "Geomanist", monospace'; const test=c.measureText(txt).width;
+    return Math.abs(test-base) > 0.5;
+  }catch(e){ return false; }
+}
+function avisarTipografia(){
+  const el=$("tipo"); if(!el) return;
+  const ok=hayGeomanist();
+  el.innerHTML = ok ? 'Portafolio en vivo · tipografía <b>Geomanist</b>'
+    : 'Portafolio en vivo · <span title="Instala Geomanist en este equipo para que la etiqueta salga idéntica al arte">tipografía Figtree (Geomanist no instalada)</span>';
+  el.style.color = ok ? "var(--ok)" : "";
+}
+
 /* ===================== arranque ===================== */
 if(!(window.CSS && CSS.supports && CSS.supports("zoom","0.25")))
   document.documentElement.classList.add("sin-zoom");
@@ -756,21 +786,31 @@ load();
 $("guias").checked=S.guias;
 $("zoom").value=S.zoom; $("zv").textContent=S.zoom+"%";
 renderQueue(); renderPos(); render();
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(avisarTipografia); else avisarTipografia();
 cargarPortafolio(true);
 
 let qt; $("q").addEventListener("input",e=>{ clearTimeout(qt); const v=e.target.value; qt=setTimeout(()=>renderResults(v),160); });
 $("btnReload").addEventListener("click",()=>cargarPortafolio(false));
+/* Agrega sin avisar de a uno: la carga masiva resume al final. */
+function addToQueueSilent(r,qty){
+  const ex=S.queue.find(q=>q.sku===r.sku);
+  if(ex) ex.qty=Math.min(200, ex.qty+qty); else S.queue.push({...r,qty});
+}
 $("btnBulk").addEventListener("click",()=>{
   if(!S.listo){ toast("El portafolio todavía no está cargado."); return; }
   const lines=$("bulk").value.split("\n").map(l=>l.trim()).filter(Boolean);
   let ok=0; const miss=[];
   for(const line of lines){
-    const [sk,c]=line.split(/[,;\t]/).map(s=>(s||"").trim());
-    const row=S.rows.find(r=>String(r[S.idx.sku]??"").trim()===sk);
+    const [sk0,c]=line.split(/[,;\t]/).map(s=>(s||"").trim());
+    const sk=sk0.replace(/[^0-9A-Za-z-]/g,"");           // quita espacios y puntos pegados
+    const row=S.rows.find(r=>String(r[S.idx.sku]??"").replace(/[^0-9A-Za-z-]/g,"")===sk);
     if(row){ addToQueueSilent(rec(row), Math.max(1,parseInt(c||"1",10)||1)); ok++; } else miss.push(sk);
   }
   save(); renderQueue(); renderPos(); render();
-  toast(miss.length ? `${ok} agregados. Sin coincidencia: ${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}` : `${ok} productos agregados.`);
+  if(!lines.length) toast("Pega al menos un SKU en el recuadro.");
+  else if(!ok) toast(`Ninguno de esos SKU está en el portafolio: ${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}`);
+  else toast(miss.length ? `${ok} agregados. Sin coincidencia: ${miss.slice(0,6).join(", ")}${miss.length>6?"…":""}`
+                         : `${ok} producto${ok>1?"s":""} agregado${ok>1?"s":""} a la cola.`);
 });
 $("btnClear").addEventListener("click",()=>{ S.queue=[]; save(); renderQueue(); renderPos(); render(); });
 $("guias").addEventListener("change",e=>{S.guias=e.target.checked;save();render();});
