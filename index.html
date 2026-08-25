@@ -328,6 +328,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const toast = m => { const t=$("toast"); t.textContent=m; t.classList.add("show");
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),4000); };
+const soloAlnum = s => String(s??"").replace(/[^0-9A-Za-z]/g,"").toLowerCase();
 const NORM = s => String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -705,11 +706,13 @@ function renderPos(){
 function search(term){
   if(!S.listo||!S.rows.length) return [];
   const t=NORM(term); if(t.length<2) return [];
+  const tc=soloAlnum(term);                       // por si el SKU viene con puntos de miles
   const out=[];
   for(const row of S.rows){
     const r=rec(row);
     if(!r.sku && !r.nombre) continue;
-    if(NORM(r.sku).startsWith(t)||NORM(r.sku)===t||NORM(r.nombre).includes(t)){ out.push(r); if(out.length>=40) break; }
+    const sc=soloAlnum(r.sku);
+    if(sc.startsWith(tc)||sc===tc||NORM(r.nombre).includes(t)){ out.push(r); if(out.length>=40) break; }
   }
   return out;
 }
@@ -718,7 +721,9 @@ function renderResults(term){
   if(!S.listo) return;
   const hits=search(term||"");
   if(!term||term.length<2){ box.innerHTML=`<div class="note">Escribe al menos 2 caracteres.</div>`; return; }
-  if(!hits.length){ box.innerHTML=`<div class="note">Sin resultados para «${esc(term)}».</div>`; return; }
+  if(!hits.length){ box.innerHTML=`<div class="status warn"><span class="dot"></span><span>
+    «${esc(term)}» no está en el portafolio. La pestaña tiene ${S.rows.length} productos hoy;
+    si esperabas encontrarlo, revisa con quien mantiene la hoja.</span></div>`; return; }
   box.innerHTML=hits.map((r,i)=>`<button class="rescard" data-i="${i}">
     ${r.foto?`<img src="${esc(r.foto)}" alt="" onerror="this.style.visibility='hidden'">`:`<img alt="">`}
     <span class="rc"><b>${esc(r.nombre||"(sin nombre)")}</b>
