@@ -88,14 +88,21 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .rescard small{font:400 11px/1.3 "IBM Plex Mono",monospace;color:var(--muted)}
 
 .queue{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
-.qrow{display:grid;grid-template-columns:1fr 78px 46px 26px;gap:7px;align-items:center;
-  border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--panel-2)}
-.qrow b{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.qrow small{font:400 10.5px/1.2 "IBM Plex Mono",monospace;color:var(--muted)}
+.qrow{display:flex;flex-direction:column;gap:5px;border:1px solid var(--line);border-radius:6px;
+  padding:7px 9px;background:var(--panel-2)}
+.qtop,.qbot{display:flex;align-items:center;gap:8px;min-width:0}
+.qrow b{flex:1;min-width:0;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qrow small{flex:1;min-width:0;font:400 10.5px/1.3 "IBM Plex Mono",monospace;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qrow input[type=number]{flex:none;width:46px;padding:3px 4px;font-size:12px;text-align:center}
 .qrow .et{font-style:normal;color:var(--accent)}
+.qrow .mano{font-style:normal;color:var(--warn)}
 .qrow .et.mal{color:var(--alert);font-weight:600}
-.qrow select,.qrow input{padding:4px 5px;font-size:11.5px}
-.iconbtn{border:none;background:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px}
+.seg{display:flex;flex:none;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--panel)}
+.seg button{border:none;background:transparent;padding:3px 9px;font-size:11px;cursor:pointer;
+  color:var(--muted);white-space:nowrap;line-height:1.5}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .iconbtn:hover{color:var(--alert)}
 
 .stagebar{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);
@@ -743,22 +750,36 @@ function renderQueue(){
   if(!S.queue.length){ q.innerHTML=`<div class="note">Aún no hay productos en la cola.</div>`; return; }
   const nombreEtiqueta = it => {
     const t = plantilla(it);
-    if(!t) return ["sin definir","mal"];
-    if(it.tam==="grande") return [it.tipo==="liquidacion"?"Grande · liquidación":"Grande · línea",""];
-    return [t===tplStk3 ? "Sticker · imperdible" : t===tplStk2 ? "Sticker · oferta" : "Sticker · precio único",""];
+    if(!t) return ["sin arte definido","mal"];
+    if(it.tam==="grande") return [it.tipo==="liquidacion" ? "liquidación" : "línea", ""];
+    return [t===tplStk3 ? "imperdible" : t===tplStk2 ? "oferta" : "precio único", ""];
   };
-  q.innerHTML=S.queue.map((it,i)=>{ const [et,cls]=nombreEtiqueta(it); return `<div class="qrow">
-    <span><b>${esc(it.nombre||it.sku)}</b><small>${esc(it.sku)} · <em class="et ${cls}">${et}</em></small></span>
-    <select data-i="${i}" data-k="tipo">
-      <option value="linea"${it.tipo==="linea"?" selected":""}>Línea</option>
-      <option value="liquidacion"${it.tipo==="liquidacion"?" selected":""}>Liquidación</option>
-    </select>
-    <input type="number" min="1" max="200" value="${it.qty}" data-i="${i}" data-k="qty">
-    <button class="iconbtn" data-del="${i}" title="Quitar">×</button>
-  </div>`; }).join("");
+  q.innerHTML=S.queue.map((it,i)=>{
+    const [et,cls]=nombreEtiqueta(it);
+    const auto = esGrande(it.nombre) ? "grande" : "pequeno";
+    const manual = it.tam !== auto;
+    return `<div class="qrow">
+      <div class="qtop">
+        <b title="${esc(it.nombre||it.sku)}">${esc(it.nombre||it.sku)}</b>
+        <input type="number" min="1" max="200" value="${it.qty}" data-i="${i}" data-k="qty"
+          title="Cuántas etiquetas imprimir" aria-label="Cantidad">
+        <button class="iconbtn" data-del="${i}" title="Quitar de la cola">×</button>
+      </div>
+      <div class="qbot">
+        <small>${esc(it.sku)} · <em class="et ${cls}">${et}</em>${manual?' · <em class="mano" title="El tamaño se cambió a mano; por regla le tocaría el otro">manual</em>':''}</small>
+        <div class="seg" role="group" aria-label="Tamaño de etiqueta">
+          <button data-i="${i}" data-tam="grande"${it.tam==="grande"?' class="on"':''}>Grande</button>
+          <button data-i="${i}" data-tam="pequeno"${it.tam!=="grande"?' class="on"':''}>Sticker</button>
+        </div>
+      </div>
+    </div>`; }).join("");
+  q.querySelectorAll("[data-tam]").forEach(b=>b.addEventListener("click",()=>{
+    S.queue[+b.dataset.i].tam = b.dataset.tam;
+    save(); renderQueue(); renderPos(); render();
+  }));
   q.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("change",e=>{
-    const i=+e.target.dataset.i, k=e.target.dataset.k;
-    S.queue[i][k] = k==="qty" ? Math.max(1,Math.min(200,+e.target.value||1)) : e.target.value;
+    const i=+e.target.dataset.i;
+    S.queue[i].qty = Math.max(1, Math.min(200, +e.target.value||1));
     save(); renderQueue(); renderPos(); render();
   }));
   q.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{
