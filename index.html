@@ -156,9 +156,8 @@ textarea{resize:vertical;min-height:72px;font-family:"IBM Plex Mono",monospace;f
 .lbl svg.fondo{position:absolute;left:0;top:0;display:block}
 /* zoom, no transform: transform deja la caja de diseño a tamaño real (340 × 500 mm),
    y al paginar el navegador la parte y encoge toda la hoja. zoom sí reduce el diseño. */
-.lbl.stk{width:50.8mm;height:25.4mm}
 .lbl .inner{position:absolute;left:0;top:0}
-.sin-zoom .lbl .inner{zoom:normal;transform:scale(.25);transform-origin:top left}
+.sin-zoom .lbl .inner{zoom:normal;transform:scale(var(--s,.25));transform-origin:top left}
 .lbl .bg{position:absolute}
 .lbl .t{position:absolute;line-height:1;white-space:nowrap;font-weight:400}
 .lbl .wrap{white-space:normal;line-height:1.08;overflow:hidden}
@@ -316,20 +315,38 @@ const PREFIJOS_GRANDE = ["ALFOMBRA","CUADRO","ESPEJO"];
 const esGrande = nombre => { const n=NORM(nombre); return PREFIJOS_GRANDE.some(p=>n.startsWith(NORM(p))); };
 // Cada formato define su etiqueta y su grilla. El marco es el máximo que deja
 // el papel manteniéndolo igual por los cuatro lados.
+/* Geometría de la lámina precortada de 40 stickers.
+   NO se toca. Está tomada milímetro a milímetro del PDF de referencia
+   «1. Jarrones Candelabros y Centros de Mesa», que ya se imprimió y calzó
+   con el troquel del papel. Las diez filas se copian tal cual —no son un
+   paso constante— para no arriesgar el registro. Si algún día cambia la
+   referencia de papel, se vuelven a medir estas cifras y se cambian aquí. */
+const LAMINA = {
+  LW: 49.742, LH: 24.694,
+  XS: [4.233, 56.797, 109.361, 161.925],
+  YS: [12.700, 38.100, 63.500, 89.253, 114.653, 140.053, 165.453, 190.853, 216.253, 242.006]
+};
 const FORMATOS = {
   grande:  { LW:85, LH:125, COLS:2, ROWS:2, MARGEN:7.35 },
-  // Lámina precortada de 40 stickers: 4 × 10 sin calles. Los márgenes salen solos
-  // al centrar (6,35 mm a los lados y 12,7 arriba y abajo = 0,25" y 0,5").
-  pequeno: { LW:50.8, LH:25.4, COLS:4, ROWS:10, MARGEN:0, precortada:true }
+  pequeno: { COLS:4, ROWS:10, precortada:true,
+             LW:LAMINA.LW, LH:LAMINA.LH, XS:LAMINA.XS, YS:LAMINA.YS,
+             SF: LAMINA.LW/50.8 }        // el arte está dibujado a 50,8 mm
 };
-for(const f of Object.values(FORMATOS)){
-  f.CW=f.LW+2*f.MARGEN; f.CH=f.LH+2*f.MARGEN;
-  f.ML=(215.9-f.COLS*f.CW)/2; f.MT=(279.4-f.ROWS*f.CH)/2;
-}
 const S = {
   headers: [], rows: [], idx: {}, fotos: {},
   queue: [], ox:0, oy:0, inicio:{grande:1,pequeno:1}, guias:true, zoom:55, listo:false
 };
+/* La etiqueta grande sí es una grilla regular: se centra en la hoja dejando
+   el mismo marco blanco por los cuatro lados. */
+(function(){
+  const g=FORMATOS.grande;
+  g.CW=g.LW+2*g.MARGEN; g.CH=g.LH+2*g.MARGEN;
+  g.ML=(215.9-g.COLS*g.CW)/2; g.MT=(279.4-g.ROWS*g.CH)/2;
+  g.XS=Array.from({length:g.COLS},(_,i)=>g.ML+i*g.CW+g.MARGEN);
+  g.YS=Array.from({length:g.ROWS},(_,j)=>g.MT+j*g.CH+g.MARGEN);
+  const p=FORMATOS.pequeno;
+  p.ML=p.XS[0]; p.MT=p.YS[0];
+})();
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -521,7 +538,8 @@ function tplLiquidacion(r){
    El recuadro del código de barras queda reservado y vacío hasta definir el dato. */
 const stkMarco = (fondo) => `<svg class="fondo" width="${M(50.8)}" height="${M(25.4)}" viewBox="0 0 50.8 25.4" aria-hidden="true">
     <rect x="0" y="0" width="50.8" height="25.4" fill="${fondo}"/></svg>`;
-const stkAbre = () => `<div class="lbl stk"><div class="inner" style="width:${M(50.8)};height:${M(25.4)};zoom:${(1/K)}">`;
+const stkAbre = () => { const p=FORMATOS.pequeno, z=(1/K)*(p.SF||1);
+  return `<div class="lbl stk" style="width:${p.LW}mm;height:${p.LH}mm"><div class="inner" style="width:${M(50.8)};height:${M(25.4)};zoom:${z};--s:${z}">`; };
 
 function tplStk1(r){   // activo, sin descuento
   return `${stkAbre()}${stkMarco("#EDEDED")}
@@ -617,7 +635,7 @@ function guias(f){
   }
   // Regla de control de escala, en el margen que no lleva etiqueta.
   const rx=f.ML/2, ancho=Math.min(4, Math.max(1.6, f.ML-1.5)), ra=60, rb=160;
-  if(f.ML>3){
+  if(f.ML>3 && !f.precortada){
     g+=`<div class="guia" style="left:${rx.toFixed(2)}mm;top:${ra}mm;width:0;border-left-width:.2mm;height:${rb-ra}mm"></div>`;
     for(const y of [ra,rb])
       g+=`<div class="guia" style="left:${(rx-ancho/2).toFixed(2)}mm;top:${y}mm;height:0;border-top-width:.35mm;width:${ancho.toFixed(2)}mm"></div>`;
@@ -653,8 +671,8 @@ function render(){
   if(!validos.length){
     c.innerHTML=`<div class="empty"><h2>La cola está vacía</h2>
       Busca un producto por SKU y agrégalo. Alfombras, cuadros y espejos salen en etiqueta de
-      85 × 125 mm, 4 por hoja para recortar; el resto en sticker de 50,8 × 25,4 mm, 40 por
-      lámina precortada.</div>`;
+      85 × 125 mm, 4 por hoja para recortar; el resto en sticker sobre lámina
+      precortada de 40.</div>`;
     return;
   }
   let html="", n=0;
@@ -662,7 +680,8 @@ function render(){
     const f=FORMATOS[k], per=f.COLS*f.ROWS;
     const start=Math.max(0,Math.min(per-1,((S.inicio[k]|0)||1)-1));
     const nh=Math.max(1,Math.ceil((arr.length+start)/per));
-    const nombre = k==="grande" ? "etiqueta 85 × 125 mm · recortar" : "sticker 50,8 × 25,4 mm · lámina precortada de 40";
+    const nombre = k==="grande" ? "etiqueta 85 × 125 mm · recortar"
+        : "sticker · lámina precortada de 40";
     for(let s=0;s<nh;s++){
       n++;
       html+=`<div class="sheetwrap" style="width:${(PAGE[0]*z).toFixed(2)}mm;height:${(PAGE[1]*z).toFixed(2)}mm">
@@ -671,7 +690,7 @@ function render(){
       for(let i=0;i<per;i++){
         const idx=s*per+i-start, q=(idx>=0&&idx<arr.length)?arr[idx]:null;
         const col=i%f.COLS, row=Math.floor(i/f.COLS);
-        const x=f.ML+S.ox+col*f.CW+f.MARGEN, y=f.MT+S.oy+row*f.CH+f.MARGEN;
+        const x=f.XS[col]+S.ox, y=f.YS[row]+S.oy;
         html+=`<div class="slot" style="left:${x.toFixed(2)}mm;top:${y.toFixed(2)}mm;width:${f.LW}mm;height:${f.LH}mm">
           ${q?plantilla(q)(q):""}</div>`;
       }
@@ -686,7 +705,7 @@ function render(){
 function renderPos(){
   const enCola = k => S.queue.some(q => (q.tam||"grande")===k && plantilla(q));
   const grupos = [["grande","Etiqueta 85 × 125 mm","4 posiciones · 2 × 2"],
-                  ["pequeno","Sticker 50,8 × 25,4 mm","40 posiciones · 4 × 10"]].filter(g=>enCola(g[0]));
+                  ["pequeno","Sticker · lámina precortada","40 posiciones · 4 × 10"]].filter(g=>enCola(g[0]));
   const sec=$("secPos");
   if(!grupos.length){ sec.hidden=true; $("posHint").textContent=""; return; }
   sec.hidden=false;
@@ -747,6 +766,8 @@ function addToQueue(r, qty){
 }
 function renderQueue(){
   const q=$("queue");
+  $("qHint").textContent = S.queue.length
+    ? `${S.queue.length} producto${S.queue.length>1?"s":""}` : "0";
   if(!S.queue.length){ q.innerHTML=`<div class="note">Aún no hay productos en la cola.</div>`; return; }
   const nombreEtiqueta = it => {
     const t = plantilla(it);
