@@ -300,6 +300,11 @@ const LOGO_CREDI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAAAsCAYAAA
 /* ===================== estado ===================== */
 const SHEET_ID = "1Zvf017OwhwKMb7_0NEKvhU0PnegumNCLUilMh63pM7U";
 const GID_PORTAFOLIO = "1086284473";
+// Inventario actual: es la fuente buena de los nombres. Son ~26.000 filas
+// (un renglón por SKU y almacén), así que se pide ya agrupada: un nombre por
+// SKU. Si algo falla, el nombre se toma del portafolio como hasta ahora.
+const GID_INVENTARIO = "1944588247";
+const TQ_INVENTARIO  = "select A, max(B) group by A";
 const TAB_FOTOS = "Imagenes";
 // Encabezados del portafolio. Se buscan por nombre; si cambian, basta editar esta lista.
 const COLMAP = {
@@ -334,7 +339,8 @@ const FORMATOS = {
 };
 const S = {
   headers: [], rows: [], idx: {}, fotos: {},
-  queue: [], ox:0, oy:0, inicio:{grande:1,pequeno:1}, guias:true, zoom:55, listo:false
+  queue: [], ox:0, oy:0, inicio:{grande:1,pequeno:1}, guias:true, zoom:55, listo:false,
+  nombresInv: {}
 };
 /* La etiqueta grande sí es una grilla regular: se centra en la hoja dejando
    el mismo marco blanco por los cuatro lados. */
@@ -410,8 +416,24 @@ function bonito(s){
     const low = w.toLowerCase();
     if(i>0 && STOP.has(low)) return low;                   // conectores
     if(w.length<=2 && w===w.toUpperCase()) return w;       // siglas cortas: MJ
-    return w.charAt(0).toUpperCase()+low.slice(1);
+    // el inventario usa barras: BLANCO/DORADO -> Blanco/Dorado
+    return low.split("/").map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join("/");
   }).join(" ");
+}
+/* Nombres del inventario actual. Nunca tumba la carga: si no llegan, se sigue
+   con los del portafolio. Devuelve cuántos nombres quedaron disponibles. */
+async function cargarNombres(){
+  try{
+    const rows = await fetchTab(
+      `gid=${GID_INVENTARIO}&headers=1&tq=${encodeURIComponent(TQ_INVENTARIO)}`);
+    const m={};
+    for(const r of rows.slice(1)){
+      const k=soloAlnum(r[0]), n=String(r[1]??"").trim();
+      if(k && n) m[k]=n;
+    }
+    S.nombresInv = m;
+    return Object.keys(m).length;
+  }catch(e){ S.nombresInv={}; return 0; }
 }
 async function cargarPortafolio(silencioso){
   const hint=$("srcHint");
@@ -424,8 +446,12 @@ async function cargarPortafolio(silencioso){
     const faltan = ["sku","nombre","estado","oferta","lista"].filter(k=>S.idx[k]===undefined);
     if(faltan.length) throw new Error("Faltan columnas en el portafolio: "+faltan.join(", "));
     S.rows = rows.slice(1).filter(r=>String(r[S.idx.sku]||"").trim());
+    hint.textContent = "leyendo inventario…";
+    const nNom = await cargarNombres();
     S.listo = true;
-    hint.textContent = `${S.rows.length} productos`;
+    hint.textContent = nNom
+      ? `${S.rows.length} productos · ${nNom} nombres`
+      : `${S.rows.length} productos · nombres del portafolio`;
     try{
       const fr = await fetchTab(`sheet=${encodeURIComponent(TAB_FOTOS)}`);
       const fh = fr[0].map(NORM);
@@ -452,12 +478,14 @@ function rec(row){
   const dcto = Math.round(nnum(g("dcto").replace("%","")));
   const lista = nnum(g("lista")), oferta = nnum(g("oferta"));
   const conDcto = dcto>0 && lista>0 && oferta>0 && oferta<lista;
+  // El nombre manda el inventario actual; si ese SKU no está ahí, el portafolio.
+  const crudo = (S.nombresInv && S.nombresInv[soloAlnum(sku)]) || g("nombre");
   return {
-    sku, nombre: bonito(g("nombre")), estado: g("estado"),
+    sku, nombre: bonito(crudo), estado: g("estado"),
     precioLista: lista, precioOferta: oferta || lista,
     dcto: conDcto ? dcto : 0, conDcto,
     cuota: "", // el portafolio aún no trae la cuota de CrediJamar
-    tam: esGrande(g("nombre")) ? "grande" : "pequeno",
+    tam: esGrande(crudo) ? "grande" : "pequeno",
     tipo: /inactiv/i.test(g("estado")) ? "liquidacion" : "linea",
     foto: S.fotos[sku] || ""
   };
